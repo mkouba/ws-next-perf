@@ -2,7 +2,6 @@ package com.github.mkouba.wsperf.next;
 
 import java.time.Duration;
 import java.time.LocalDateTime;
-import java.time.temporal.TemporalUnit;
 import java.util.concurrent.atomic.AtomicReference;
 
 import io.quarkus.logging.Log;
