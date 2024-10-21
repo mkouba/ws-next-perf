@@ -1,11 +1,15 @@
 package com.github.mkouba.wsperf;
 
+import java.io.File;
+import java.nio.file.Files;
 import java.time.Duration;
+import java.time.LocalDateTime;
 import java.util.List;
 import java.util.Optional;
 import java.util.concurrent.CopyOnWriteArrayList;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.TimeUnit;
+import java.util.concurrent.atomic.AtomicReference;
 import java.util.concurrent.atomic.LongAdder;
 
 import org.eclipse.microprofile.config.inject.ConfigProperty;
@@ -17,9 +21,10 @@ import io.vertx.core.Vertx;
 import io.vertx.core.http.WebSocket;
 import io.vertx.core.http.WebSocketClient;
 import io.vertx.core.http.WebSocketConnectOptions;
+import io.vertx.core.json.JsonObject;
 import jakarta.inject.Inject;
 
-@QuarkusMain
+@QuarkusMain(name = "test")
 public class TestClient implements QuarkusApplication {
 
     @ConfigProperty(name = "number.of.clients", defaultValue = "1000")
@@ -54,6 +59,7 @@ public class TestClient implements QuarkusApplication {
         CountDownLatch receivedMessagesLatch = new CountDownLatch(numberOfClients * numberOfMessages);
         String payload = "FOO";
         long timeout = 60l;
+        AtomicReference<String> quarkusVersion = new AtomicReference<>();
 
         // Connect all clients
         CountDownLatch connectedLatch = new CountDownLatch(numberOfClients);
@@ -66,10 +72,14 @@ public class TestClient implements QuarkusApplication {
                         if (r.succeeded()) {
                             WebSocket ws = r.result();
                             ws.textMessageHandler(s -> {
-                                if (!s.equals(payload.toLowerCase())) {
-                                    Log.errorf("Received invalid message from the server: %s", s);
+                                if (s.startsWith("_")) {
+                                    quarkusVersion.compareAndSet(null, s.substring(1));
+                                } else {
+                                    if (!s.equals(payload.toLowerCase())) {
+                                        Log.errorf("Received invalid message from the server: %s", s);
+                                    }
+                                    receivedMessagesLatch.countDown();
                                 }
-                                receivedMessagesLatch.countDown();
                             });
                             clients.add(ws);
                             connectedLatch.countDown();
@@ -137,7 +147,21 @@ public class TestClient implements QuarkusApplication {
             throw new IllegalStateException("Unable to close all clients...");
         }
 
-        Log.infof("Finished in %s ms", TimeUnit.NANOSECONDS.toMillis(System.nanoTime() - start));
+        long timeTaken = TimeUnit.NANOSECONDS.toMillis(System.nanoTime() - start);
+        Log.infof("Finished in %s ms", timeTaken);
+
+        LocalDateTime timestamp = LocalDateTime.now();
+        JsonObject res = new JsonObject();
+        res.put("timestamp", timestamp.toString());
+        res.put("timeTaken", timeTaken);
+        res.put("quarkusVersion", quarkusVersion.get());
+        res.put("numberOfClients", numberOfClients);
+        res.put("numberOfMessages", numberOfMessages);
+
+        File resultsDir = new File("target/results");
+        Files.createDirectories(resultsDir.toPath());
+        Files.writeString(new File(resultsDir, quarkusVersion.get() + ".json").toPath(), res.toString());
+
         return 0;
     }
 

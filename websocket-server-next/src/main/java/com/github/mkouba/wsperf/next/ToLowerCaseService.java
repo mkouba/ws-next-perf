@@ -4,7 +4,7 @@ import io.quarkus.logging.Log;
 import jakarta.enterprise.context.ApplicationScoped;
 
 @ApplicationScoped
-public class ToLowewCaseService {
+public class ToLowerCaseService {
     
     String convert(String value) {
         Log.debugf("Converting %s", value);

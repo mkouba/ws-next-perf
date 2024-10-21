@@ -43,3 +43,4 @@ nb-configuration.xml
 .mvn/.develocity
 .mvn/.gradle-enterprise/
 .quarkus
+test-client/nohup.out
