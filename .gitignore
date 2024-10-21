@@ -44,3 +44,4 @@ nb-configuration.xml
 .mvn/.gradle-enterprise/
 .quarkus
 test-client/nohup.out
+websocket-server-next/nohup.out

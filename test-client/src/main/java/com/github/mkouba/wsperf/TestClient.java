@@ -42,6 +42,9 @@ public class TestClient implements QuarkusApplication {
     @ConfigProperty(name = "server.path", defaultValue = "/to-lower-case")
     String serverPath;
 
+    @ConfigProperty(name = "timeout", defaultValue = "60")
+    long timeout;
+
     @ConfigProperty(name = "message-interval")
     Optional<Duration> messageInterval;
 
@@ -58,7 +61,6 @@ public class TestClient implements QuarkusApplication {
         List<WebSocket> clients = new CopyOnWriteArrayList<>();
         CountDownLatch receivedMessagesLatch = new CountDownLatch(numberOfClients * numberOfMessages);
         String payload = "FOO";
-        long timeout = 60l;
         AtomicReference<String> quarkusVersion = new AtomicReference<>();
 
         // Connect all clients
@@ -120,10 +122,12 @@ public class TestClient implements QuarkusApplication {
             throw new IllegalStateException("Unable to send all messages in time...");
         }
 
+        boolean failed = false;
         if (success.sum() == numberOfClients * numberOfMessages) {
             Log.infof("%s messages sent to each connected client", numberOfMessages);
             if (!receivedMessagesLatch.await(timeout, TimeUnit.SECONDS)) {
-                throw new IllegalStateException("Number of replies received: " + receivedMessagesLatch.getCount());
+                Log.warnf("Incorrect number of replies received: ", receivedMessagesLatch.getCount());
+                failed = true;
             }
         } else {
             Log.warnf("%s failures when sending %s messages with %s clients", failure.sum(), numberOfMessages,
@@ -148,6 +152,11 @@ public class TestClient implements QuarkusApplication {
         }
 
         long timeTaken = TimeUnit.NANOSECONDS.toMillis(System.nanoTime() - start);
+        if (failed) {
+            Log.warnf("Failed in %s ms", timeTaken);
+            return 1;
+        }
+
         Log.infof("Finished in %s ms", timeTaken);
 
         LocalDateTime timestamp = LocalDateTime.now();

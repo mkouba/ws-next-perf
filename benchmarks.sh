@@ -3,10 +3,13 @@ if [ -z "$QUARKUS_VERSIONS" ]; then
     QUARKUS_VERSIONS="3.15.1 999-SNAPSHOT"
 fi
 if [ -z "$WARMUP_CLIENTS" ]; then
-    WARMUP_CLIENTS=10
+    WARMUP_CLIENTS=100
 fi
 if [ -z "$TEST_CLIENTS" ]; then
-    TEST_CLIENTS=10
+    TEST_CLIENTS=1000
+fi
+if [ -z "$TIMEOUT" ]; then
+    TIMEOUT=60
 fi
 
 wait_for_start() {
@@ -54,9 +57,9 @@ do
     # run test client
     cd ../test-client
     # run warmup phase
-    java -Dnumber.of.clients=$WARMUP_CLIENTS -jar target/quarkus-app/quarkus-run.jar
+    java -Dnumber.of.clients=$WARMUP_CLIENTS -Dtimeout=$TIMEOUT -jar target/quarkus-app/quarkus-run.jar
     # run benchmark phase
-    java -Dnumber.of.clients=$TEST_CLIENTS -jar target/quarkus-app/quarkus-run.jar
+    java -Dnumber.of.clients=$TEST_CLIENTS -Dtimeout=$TIMEOUT -jar target/quarkus-app/quarkus-run.jar
 
     # wait for the server to stop
     wait_for_stop
