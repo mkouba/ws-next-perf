@@ -20,7 +20,7 @@ import jakarta.inject.Inject;
 public class ToLowerCaseEndpoint {
 
     static final long WARMUP_DELAY = 10;
-    static final AtomicReference<LocalDateTime> LAST_CLOSED = new AtomicReference<>();
+    static final AtomicReference<LocalDateTime> LAST_CLOSED = new AtomicReference<>(LocalDateTime.now());
 
     @Inject
     ToLowerCaseService service;

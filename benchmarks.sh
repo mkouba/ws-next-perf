@@ -13,19 +13,23 @@ if [ -z "$TIMEOUT" ]; then
 fi
 
 wait_for_start() {
+    counter=1
     while [ "$(jps | grep quarkus-run)" == "" ]
     do
-      echo "Waiting for the server to start.."
       sleep 1
+      echo "Waiting ${counter}s for the server to start.."
+      let counter++
     done
     echo "Server started"
 }
 
 wait_for_stop() {
+    counter=1
     while [ "$(jps | grep quarkus-run)" != "" ]
     do
-      echo "Waiting for the server to stop.."
       sleep 1
+      echo "Waiting ${counter}s for the server to stop.."
+      let counter++
     done
     echo "Server stopped"
 }
@@ -52,6 +56,7 @@ do
     
     # wait for the server to start
     wait_for_start
+    # additional time to start the http server
     sleep 2
 
     # run test client

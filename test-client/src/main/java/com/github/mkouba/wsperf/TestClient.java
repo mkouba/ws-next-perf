@@ -59,7 +59,9 @@ public class TestClient implements QuarkusApplication {
                 numberOfClients, numberOfMessages, serverHost, serverPort, serverPath);
 
         List<WebSocket> clients = new CopyOnWriteArrayList<>();
-        CountDownLatch receivedMessagesLatch = new CountDownLatch(numberOfClients * numberOfMessages);
+        int numberOfClientMessages = numberOfClients * numberOfMessages;
+        CountDownLatch receivedMessagesLatch = new CountDownLatch(numberOfClientMessages);
+        CountDownLatch sendMessagesLatch = new CountDownLatch(numberOfClientMessages);
         String payload = "FOO";
         AtomicReference<String> quarkusVersion = new AtomicReference<>();
 
@@ -81,6 +83,10 @@ public class TestClient implements QuarkusApplication {
                                         Log.errorf("Received invalid message from the server: %s", s);
                                     }
                                     receivedMessagesLatch.countDown();
+                                    long received = receivedMessagesLatch.getCount();
+                                    if (received % (numberOfClientMessages / 10) == 0) {
+                                        Log.infof("%s messages received", numberOfClientMessages - received);
+                                    }
                                 }
                             });
                             clients.add(ws);
@@ -97,7 +103,6 @@ public class TestClient implements QuarkusApplication {
         Log.infof("%s clients connected", numberOfClients);
 
         // Send messages
-        CountDownLatch messagesLatch = new CountDownLatch(numberOfClients * numberOfMessages);
         LongAdder success = new LongAdder();
         LongAdder failure = new LongAdder();
         for (int i = 0; i < numberOfMessages; i++) {
@@ -109,7 +114,11 @@ public class TestClient implements QuarkusApplication {
                         failure.increment();
                         Log.error("Error sending a message to " + ws, r.cause());
                     }
-                    messagesLatch.countDown();
+                    sendMessagesLatch.countDown();
+                    long sent = sendMessagesLatch.getCount();
+                    if (sent % (numberOfClientMessages / 10) == 0) {
+                        Log.infof("%s messages sent", numberOfClientMessages - sent);
+                    }
                 });
             }
             if (messageInterval.isPresent()) {
@@ -118,15 +127,15 @@ public class TestClient implements QuarkusApplication {
             }
         }
 
-        if (!messagesLatch.await(timeout, TimeUnit.SECONDS)) {
+        if (!sendMessagesLatch.await(timeout, TimeUnit.SECONDS)) {
             throw new IllegalStateException("Unable to send all messages in time...");
         }
 
         boolean failed = false;
-        if (success.sum() == numberOfClients * numberOfMessages) {
+        if (success.sum() == numberOfClientMessages) {
             Log.infof("%s messages sent to each connected client", numberOfMessages);
             if (!receivedMessagesLatch.await(timeout, TimeUnit.SECONDS)) {
-                Log.warnf("Incorrect number of replies received: ", receivedMessagesLatch.getCount());
+                Log.warnf("Incorrect number of replies received: %s", receivedMessagesLatch.getCount());
                 failed = true;
             }
         } else {
