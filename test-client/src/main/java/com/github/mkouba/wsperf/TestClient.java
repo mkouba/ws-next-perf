@@ -17,10 +17,12 @@ import org.eclipse.microprofile.config.inject.ConfigProperty;
 import io.quarkus.logging.Log;
 import io.quarkus.runtime.QuarkusApplication;
 import io.quarkus.runtime.annotations.QuarkusMain;
+import io.vertx.core.Context;
 import io.vertx.core.Vertx;
 import io.vertx.core.http.WebSocket;
 import io.vertx.core.http.WebSocketClient;
 import io.vertx.core.http.WebSocketConnectOptions;
+import io.vertx.core.impl.VertxImpl;
 import io.vertx.core.json.JsonObject;
 import jakarta.inject.Inject;
 
@@ -68,33 +70,40 @@ public class TestClient implements QuarkusApplication {
         // Connect all clients
         CountDownLatch connectedLatch = new CountDownLatch(numberOfClients);
         for (int i = 0; i < numberOfClients; i++) {
-            WebSocketClient client = vertx.createWebSocketClient();
-            WebSocketConnectOptions connectOptions = new WebSocketConnectOptions().setHost(serverHost)
-                    .setPort(serverPort).setURI(serverPath).setAllowOriginHeader(false);
-            client.connect(connectOptions)
-                    .onComplete(r -> {
-                        if (r.succeeded()) {
-                            WebSocket ws = r.result();
-                            ws.textMessageHandler(s -> {
-                                if (s.startsWith("_")) {
-                                    quarkusVersion.compareAndSet(null, s.substring(1));
-                                } else {
-                                    if (!s.equals(payload.toLowerCase())) {
-                                        Log.errorf("Received invalid message from the server: %s", s);
+            // TODO we don't want to use the same event loop for all clients
+            Context context = ((VertxImpl) vertx).createEventLoopContext();
+            context.runOnContext(v -> {
+                WebSocketClient client = vertx.createWebSocketClient();
+                WebSocketConnectOptions connectOptions = new WebSocketConnectOptions()
+                        .setHost(serverHost)
+                        .setPort(serverPort)
+                        .setURI(serverPath)
+                        .setAllowOriginHeader(false);
+                client.connect(connectOptions)
+                        .onComplete(r -> {
+                            if (r.succeeded()) {
+                                WebSocket ws = r.result();
+                                ws.textMessageHandler(s -> {
+                                    if (s.startsWith("_")) {
+                                        quarkusVersion.compareAndSet(null, s.substring(1));
+                                    } else {
+                                        if (!s.equals(payload.toLowerCase())) {
+                                            Log.errorf("Received invalid message from the server: %s", s);
+                                        }
+                                        receivedMessagesLatch.countDown();
+                                        long received = receivedMessagesLatch.getCount();
+                                        if (received % (numberOfClientMessages / 10) == 0) {
+                                            Log.infof("%s messages received", numberOfClientMessages - received);
+                                        }
                                     }
-                                    receivedMessagesLatch.countDown();
-                                    long received = receivedMessagesLatch.getCount();
-                                    if (received % (numberOfClientMessages / 10) == 0) {
-                                        Log.infof("%s messages received", numberOfClientMessages - received);
-                                    }
-                                }
-                            });
-                            clients.add(ws);
-                            connectedLatch.countDown();
-                        } else {
-                            throw new IllegalStateException(r.cause());
-                        }
-                    });
+                                });
+                                clients.add(ws);
+                                connectedLatch.countDown();
+                            } else {
+                                throw new IllegalStateException(r.cause());
+                            }
+                        });
+            });
         }
 
         if (!connectedLatch.await(timeout, TimeUnit.SECONDS)) {
