@@ -1,14 +1,14 @@
 #!/bin/bash
 if [ -z "$QUARKUS_VERSIONS" ]; then
-    QUARKUS_VERSIONS="3.15.1 999-SNAPSHOT"
+    QUARKUS_VERSIONS="3.15.1 3.16.3 3.17.0.CR1 999-SNAPSHOT"
 fi
 
 if [ -z "$WARMUP_CLIENTS" ]; then
-    WARMUP_CLIENTS=100
+    WARMUP_CLIENTS=500
 fi
 
 if [ -z "$TEST_CLIENTS" ]; then
-    TEST_CLIENTS=1000
+    TEST_CLIENTS=5000
 fi
 
 if [ -z "$TIMEOUT" ]; then
