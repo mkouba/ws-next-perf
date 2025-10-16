@@ -1,6 +1,6 @@
 #!/bin/bash
 if [ -z "$QUARKUS_VERSIONS" ]; then
-    QUARKUS_VERSIONS="3.15.1 3.16.3 3.17.0.CR1 999-SNAPSHOT"
+    QUARKUS_VERSIONS="3.15.1 3.28.4"
 fi
 
 if [ -z "$WARMUP_CLIENTS" ]; then
